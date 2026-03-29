@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>TurfWar — Claim Your Streets</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+      createUserWithEmailAndPassword, GoogleAuthProvider,
+      signInWithPopup, signOut, updateProfile
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, updateDoc,
+      collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // ── PASTE YOUR FIREBASE CONFIG HERE ──────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "YOUR_API_KEY",
+      authDomain:        "YOUR_PROJECT.firebaseapp.com",
+      projectId:         "YOUR_PROJECT_ID",
+      storageBucket:     "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId:             "YOUR_APP_ID"
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+    window._firebase = { auth, db, GoogleAuthProvider, signInWithPopup, signOut,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
+      onAuthStateChanged, doc, setDoc, getDoc, updateDoc,
+      collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit };
+  </script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-bg">
+    <div class="auth-grid"></div>
+  </div>
+  <div class="auth-content">
+    <div class="auth-logo">
+      <div class="logo-mark">⬡</div>
+      <h1 class="logo-text">TURF<span>WAR</span></h1>
+      <p class="logo-sub">Claim your streets. Defend your turf.</p>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Sign In</button>
+        <button class="auth-tab" data-tab="signup">Sign Up</button>
+      </div>
+
+      <div id="auth-login" class="auth-panel active">
+        <input type="email" id="login-email" class="auth-input" placeholder="Email" />
+        <input type="password" id="login-password" class="auth-input" placeholder="Password" />
+        <button class="btn-primary" id="btn-login">Sign In</button>
+        <div class="auth-divider"><span>or</span></div>
+        <button class="btn-google" id="btn-google-login">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.5 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C36.9 36.2 44 31 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+          Continue with Google
+        </button>
+      </div>
+
+      <div id="auth-signup" class="auth-panel">
+        <input type="text"  id="signup-name"     class="auth-input" placeholder="Display Name" />
+        <input type="email" id="signup-email"    class="auth-input" placeholder="Email" />
+        <input type="password" id="signup-password" class="auth-input" placeholder="Password (min 6 chars)" />
+        <button class="btn-primary" id="btn-signup">Create Account</button>
+        <div class="auth-divider"><span>or</span></div>
+        <button class="btn-google" id="btn-google-signup">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.5 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C36.9 36.2 44 31 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+          Continue with Google
+        </button>
+      </div>
+
+      <p id="auth-error" class="auth-error"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════ -->
+<div id="app-screen" class="screen">
+
+  <!-- ── TOP BAR ── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">⬡ TURFWAR</span>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-points" id="topbar-points">0 pts</span>
+      <div class="topbar-avatar" id="topbar-avatar">?</div>
+    </div>
+  </header>
+
+  <!-- ── TAB CONTENT ── -->
+  <main class="tab-content">
+
+    <!-- HOME TAB -->
+    <section id="tab-home" class="tab-panel active">
+      <div id="map"></div>
+
+      <!-- Run Stats Overlay (hidden until run starts) -->
+      <div id="run-overlay" class="run-overlay hidden">
+        <div class="run-stat">
+          <span class="run-val" id="run-distance">0.00</span>
+          <span class="run-label">km</span>
+        </div>
+        <div class="run-stat">
+          <span class="run-val" id="run-time">00:00</span>
+          <span class="run-label">time</span>
+        </div>
+        <div class="run-stat">
+          <span class="run-val" id="run-speed">0.0</span>
+          <span class="run-label">km/h</span>
+        </div>
+      </div>
+
+      <!-- Countdown Overlay -->
+      <div id="countdown-overlay" class="countdown-overlay hidden">
+        <div id="countdown-number" class="countdown-number">3</div>
+      </div>
+
+      <!-- Start / Stop Button -->
+      <div class="run-btn-wrap">
+        <button id="btn-run" class="btn-run">START RUN</button>
+      </div>
+
+      <!-- Turf Info Popup -->
+      <div id="turf-popup" class="turf-popup hidden">
+        <button class="turf-popup-close" id="turf-popup-close">✕</button>
+        <div class="turf-popup-content" id="turf-popup-content"></div>
+      </div>
+    </section>
+
+    <!-- LEADERBOARD TAB -->
+    <section id="tab-leaderboard" class="tab-panel">
+      <div class="tab-header">
+        <h2>Leaderboard</h2>
+        <p class="tab-sub">Top runners by turf points</p>
+      </div>
+      <div id="leaderboard-list" class="leaderboard-list">
+        <div class="loading-spinner"></div>
+      </div>
+    </section>
+
+    <!-- CHALLENGES TAB -->
+    <section id="tab-challenges" class="tab-panel">
+      <div class="tab-header">
+        <h2>Challenges</h2>
+        <p class="tab-sub">Complete challenges to earn bonus points</p>
+      </div>
+      <div class="challenges-grid" id="challenges-grid"></div>
+    </section>
+
+    <!-- PROFILE TAB -->
+    <section id="tab-profile" class="tab-panel">
+      <div class="profile-hero">
+        <div class="profile-avatar-lg" id="profile-avatar-lg">?</div>
+        <h2 id="profile-name">Runner</h2>
+        <p id="profile-email" class="profile-email"></p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-val" id="stat-points">0</span>
+          <span class="stat-lbl">Total Points</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="stat-runs">0</span>
+          <span class="stat-lbl">Runs</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="stat-km">0.0</span>
+          <span class="stat-lbl">Total km</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="stat-turf">0</span>
+          <span class="stat-lbl">Turf Owned</span>
+        </div>
+      </div>
+      <div class="recent-runs">
+        <h3>Recent Runs</h3>
+        <div id="recent-runs-list"></div>
+      </div>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </section>
+
+  </main>
+
+  <!-- ── BOTTOM NAV ── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="home">
+      <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="nav-btn" data-tab="leaderboard">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span>Leaderboard</span>
+    </button>
+    <button class="nav-btn" data-tab="challenges">
+      <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+      <span>Challenges</span>
+    </button>
+    <button class="nav-btn" data-tab="profile">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg>
+      <span>Profile</span>
+    </button>
+  </nav>
+
+</div><!-- /app-screen -->
+
+<script src="js/app.js"></script>
+</body>
+</html>
